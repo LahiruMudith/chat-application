@@ -1,0 +1,97 @@
+package org.example.chatapplication.controller;
+
+import javafx.event.ActionEvent;
+import javafx.fxml.FXML;
+import javafx.fxml.Initializable;
+import javafx.scene.control.Button;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.stage.FileChooser;
+
+import java.io.*;
+import java.net.Socket;
+import java.net.URL;
+import java.util.ResourceBundle;
+
+public class ClientController implements Initializable {
+    Socket socket = new Socket("localhost", 5000);
+    DataInputStream dataInputStream;
+    DataOutputStream dataOutputStream;
+    FileInputStream fileInputStream;
+    @FXML
+    private Button btnSend;
+
+    @FXML
+    private TextArea messageArea;
+
+    @FXML
+    private TextField txtText;
+
+    public ClientController() throws IOException {
+        System.out.println("Starting Client...");
+    }
+
+    @FXML
+    void btnSend(ActionEvent event) throws IOException {
+        String newMessage = txtText.getText();
+        messageArea.appendText("Client : " + newMessage + "\n");
+
+        dataOutputStream = new DataOutputStream(socket.getOutputStream());
+        PrintWriter writer = new PrintWriter(new OutputStreamWriter(dataOutputStream, "UTF-8"), true)) {
+        dataOutputStream.writeUTF(newMessage);
+        dataOutputStream.flush();
+
+        txtText.clear();
+    }
+
+    @FXML
+    void btnFileUpload(ActionEvent event) throws IOException {
+//        FileChooser fileChooser = new FileChooser();
+//        File file = fileChooser.showOpenDialog(null);
+//        long length = file.length();
+//        byte[] bytes = new byte[16 * 1024];
+//        fileInputStream = new FileInputStream(file);
+//        dataOutputStream = new DataOutputStream(socket.getOutputStream());
+//        dataOutputStream.writeLong(file.length());
+//        int count;
+//        System.out.println("file uploading...");
+//        while ((count = fileInputStream.read(bytes)) > 0) {
+//            dataOutputStream.write(bytes, 0, count);
+//        }
+//        messageArea.setText(file.getName() + " has been uploaded.\n");
+//        System.out.println("file uploading complete...");
+
+    }
+    @Override
+    public void initialize(URL url, ResourceBundle resourceBundle) {
+//        messageArea.setText("Client Started\n");
+//        new Thread(() -> {
+//            try {
+//                dataInputStream = new DataInputStream(socket.getInputStream());
+//                String message = dataInputStream.readUTF();
+//                if (!message.isEmpty()){
+//                    String messageAreaText = messageArea.getText();
+//                    if (messageAreaText.isEmpty()) {
+//                        messageArea.setText("Server : " + message);
+//                    }else {
+//                        messageArea.setText(messageAreaText + "\nServer : " + message);
+//                    }
+//                }
+//            } catch (IOException e) {
+//                throw new RuntimeException(e);
+//            }
+//        }).start();
+
+        new Thread(() -> {
+            try {
+                dataInputStream = new DataInputStream(socket.getInputStream());
+                while (true){
+                    String message = dataInputStream.readUTF();
+                    messageArea.appendText("Server : " + message +  "\n");
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }).start();
+    }
+}

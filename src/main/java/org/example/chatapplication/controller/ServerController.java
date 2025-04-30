@@ -1,0 +1,77 @@
+package org.example.chatapplication.controller;
+
+import javafx.application.Platform;
+import javafx.event.ActionEvent;
+import javafx.fxml.FXML;
+import javafx.fxml.Initializable;
+import javafx.scene.control.Button;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+
+import javax.net.ServerSocketFactory;
+import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.URL;
+import java.util.ResourceBundle;
+
+public class ServerController implements Initializable {
+    ServerSocket serverSocket;
+    Socket socket;
+    DataInputStream dataInputStream;
+    DataOutputStream dataOutputStream;
+    FileOutputStream fileOutputStream;
+
+    @FXML
+    private Button btnSend;
+
+    @FXML
+    private TextArea messageArea;
+
+    @FXML
+    private TextField txtText;
+
+    @FXML
+    void btnSend(ActionEvent event) throws IOException {
+        String newMessage = txtText.getText();
+        messageArea.appendText("Server : " + newMessage + "\n");
+
+        dataOutputStream = new DataOutputStream(socket.getOutputStream());
+        dataOutputStream.writeUTF(newMessage);
+        dataOutputStream.flush();
+
+        txtText.clear();
+    }
+    @FXML
+    void btnCloseChat(ActionEvent event) throws IOException {
+        messageArea.setText("\nServer Closed");
+        dataOutputStream.close();
+        dataInputStream.close();
+        socket.close();
+        System.exit(0);
+    }
+    @Override
+    public void initialize(URL url, ResourceBundle resourceBundle) {
+        new Thread(() -> {
+            ServerSocketFactory serverSocketFactory = ServerSocketFactory.getDefault();
+
+            try {
+                serverSocket = serverSocketFactory.createServerSocket(5000);
+                socket = serverSocket.accept();
+                System.out.println("Client Connected");
+
+                dataInputStream = new DataInputStream(socket.getInputStream());
+                while (true){
+                    String message = dataInputStream.readUTF();
+                    if (!message.isEmpty()) {
+                        messageArea.appendText("Client : " + message + "\n");
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+    }
+
+}
