@@ -3,109 +3,208 @@ package org.example.chatapplication.controller;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
-import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
-import javax.imageio.ImageIO;
-import javax.net.ServerSocketFactory;
-import java.awt.image.BufferedImage;
-import java.awt.image.RenderedImage;
-import java.io.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
+import java.util.HashSet;
 import java.util.ResourceBundle;
 
 public class ServerController implements Initializable {
-    ServerSocket serverSocket;
-    Socket socket;
-    DataInputStream dataInputStream;
-    DataOutputStream dataOutputStream;
-    FileOutputStream fileOutputStream;
+
+    private static int PORTNUMBER = 7000;
+    private ServerSocket serverSocket;
+    private static HashSet<ObjectOutputStream> writers = new HashSet<>();
+    private boolean isRunning = false;
 
     @FXML
-    private Button btnSend;
-
-    @FXML
-    private TextArea messageArea;
-
-    @FXML
-    private TextField txtText;
+    private Button btnStartClient;
 
     @FXML
     private ImageView imageView;
 
     @FXML
-    void btnSend(ActionEvent event) throws IOException {
-        String newMessage = txtText.getText();
-        messageArea.appendText("Server : " + newMessage + "\n");
-
-        dataOutputStream = new DataOutputStream(socket.getOutputStream());
-        dataOutputStream.writeUTF(newMessage);
-        dataOutputStream.flush();
-
-        txtText.clear();
-    }
-    @FXML
-    void btnCloseChat(ActionEvent event) throws IOException {
-        messageArea.setText("\nServer Closed");
-        dataOutputStream.close();
-        dataInputStream.close();
-        socket.close();
-        System.exit(0);
-    }
+    private TextField txtClientName;
 
     @FXML
-    void downloadBtn(ActionEvent event) {
-        Image image = imageView.getImage();
+    private TextArea txtStatus;
 
-        File file = new File("C:\\Users\\lahir\\Documents\\IJSE\\2nd Sem\\Network Programing\\chat-application\\src\\main\\java\\org\\example\\chatapplication\\assets\\image.jpg");
+    @FXML
+    void btnStartClient(ActionEvent event) {
+        if (!isRunning){
+            startServer();
+        }
+        openClientWindow();
     }
-    @Override
-    public void initialize(URL url, ResourceBundle resourceBundle) {
-        new Thread(() -> {
-            ServerSocketFactory serverSocketFactory = ServerSocketFactory.getDefault();
+    void appendStatus(String message) {
+        Platform.runLater(() -> txtStatus.appendText(message + "\n"));
+    }
 
+    private void openClientWindow() {
+        Platform.runLater(() -> {
             try {
-                serverSocket = serverSocketFactory.createServerSocket(5000);
-                socket = serverSocket.accept();
-                System.out.println("Client Connected");
+                FXMLLoader loader = new FXMLLoader(getClass().getResource("/org/example/chatapplication/view/client.fxml"));
 
-                dataInputStream = new DataInputStream(socket.getInputStream());
-                while (true){
-                    String message = dataInputStream.readUTF();
-
-                    if (message.equals("IMAGE")){
-                        int length = dataInputStream.readInt();
-                        byte[] imageByte = new byte[length];
-                        dataInputStream.readFully(imageByte, 0, length);
-                        ByteArrayInputStream bais = new ByteArrayInputStream(imageByte);
-                        Image image = new Image(bais);
-                        imageView.setImage(image);
-
-//                        BufferedImage imageBuffer = ImageIO.read(bais);
-//                        String path = "C:\\Users\\lahir\\Downloads\\image.jpg";
-//                        File file = new File(path);
-//                        ImageIO.write(imageBuffer, "jpg", file);
-
-                        messageArea.appendText("Client : " + "image received" + "\n");
-                    }else {
-                        if (!message.isEmpty()) {
-                            messageArea.appendText("Client : " + message + "\n");
-                        }
-                    }
+                if (loader.getLocation() == null) {
+                    appendStatus("FXML not found at specified path!");
+                    return;
                 }
+
+                // Load the UI
+                Scene scene = new Scene(loader.load());
+
+                // Set up the stage
+                Stage stage = new Stage();
+                stage.setTitle("Chat Client");
+                stage.setScene(scene);
+
+                // Ensure controller is initialized before accessing
+                ClientController controller = loader.getController();
+                controller.setClientName(txtClientName.getText());
+                stage.setOnCloseRequest(event -> {
+                    if (controller != null) {
+                        controller.closeConnection();
+                    }
+                });
+
+                stage.show();
+                appendStatus("New client window opened");
+
             } catch (IOException e) {
+                appendStatus("Error opening client window");
                 e.printStackTrace();
             }
-        }).start();
 
+        });
     }
 
+
+    void startServer(){
+        isRunning = true;
+        appendStatus("Server started on port " + PORTNUMBER);
+        new Thread(() -> {
+            try {
+                serverSocket = new ServerSocket(PORTNUMBER);
+                while (isRunning){
+                    Socket socket = serverSocket.accept();
+                    appendStatus("New client connected");
+
+                    Thread clientThread = new Thread(new ClientHandler(socket));
+                    clientThread.start();
+                }
+
+            } catch (Exception e) {
+                appendStatus("Error Starting Server");
+                throw new RuntimeException(e);
+            }
+        }).start();
+    }
+
+    @Override
+    public void initialize(URL url, ResourceBundle resourceBundle) {
+        txtStatus.setDisable(true);
+    }
+
+    private class ClientHandler implements Runnable{
+        private Socket socket;
+        private ObjectInputStream inputStream;
+        private ObjectOutputStream outputStream;
+        private String clientName;
+
+        public ClientHandler(Socket socket) {
+            this.socket = socket;
+        }
+        @Override
+        public void run() {
+            try{
+                inputStream = new ObjectInputStream(socket.getInputStream());
+                outputStream = new ObjectOutputStream(socket.getOutputStream());
+
+                while (true){
+                    outputStream.writeObject("SUBMITNAME");
+                    clientName = inputStream.readObject().toString();
+
+                    if (!clientName.trim().isEmpty() && clientName != null){
+                        break;
+                    }
+                    appendStatus("Invalid Name, Try Again");
+                }
+
+                outputStream.writeObject("NAMEACCEPTED");
+                appendStatus("Client " + clientName + " connected!");
+                broadcast("TEXT " + clientName + " joined the chat");
+
+                synchronized (writers){
+                    writers.add(outputStream);
+                }
+
+                while (true){
+                    Object message = inputStream.readObject();
+                    if (message == null) break;
+                    if (message instanceof String){
+                        String text = (String) message;
+                        broadcast("TEXT " + clientName + ": " + text);
+                    } else if (message instanceof byte []) {
+                        broadcast("IMAGE " + clientName, (byte []) message);
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                appendStatus("Error connecting to client");
+            }finally {
+                if (clientName != null){
+                    appendStatus("Client " + clientName + " disconnected!");
+                    broadcast("TEXT " + clientName + " left the chat");
+                }
+                synchronized (writers){
+                    writers.remove(outputStream);
+                }
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    appendStatus("Error closing the client socket");
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+
+        void broadcast(String message){
+            synchronized (writers){
+                for (ObjectOutputStream writer : writers){
+                    try{
+                        writer.writeObject(message);
+                        writer.flush();
+                    }catch (Exception e){
+                        e.printStackTrace();
+                        appendStatus("Error broadcasting message to clients");
+                    }
+                }
+            }
+        }
+        void broadcast(String header, byte[] imageData){
+            synchronized (writers){
+                for (ObjectOutputStream writer : writers){
+                    try{
+                        writer.writeObject(header);
+                        writer.writeObject(imageData);
+                        writer.flush();
+                    }catch (Exception e){
+                        e.printStackTrace();
+                        appendStatus("Error broadcasting image to clients");
+                    }
+                }
+            }
+        }
+    }
 }

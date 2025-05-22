@@ -11,9 +11,8 @@
 
 <AnchorPane prefHeight="442.0" prefWidth="618.0" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.chatapplication.controller.ServerController">
    <children>
-      <TextArea fx:id="messageArea" editable="false" layoutX="14.0" layoutY="82.0" prefHeight="246.0" prefWidth="417.0" />
-      <TextField fx:id="txtText" layoutX="14.0" layoutY="356.0" prefHeight="46.0" prefWidth="434.0" promptText="Enter Msssage Here" />
-      <Button fx:id="btnSend" layoutX="482.0" layoutY="356.0" mnemonicParsing="false" onAction="#btnSend" prefHeight="46.0" prefWidth="74.0" style="-fx-background-color: green;" text="SEND" textFill="WHITE">
+      <TextField fx:id="txtClientName" layoutX="93.0" layoutY="317.0" prefHeight="46.0" prefWidth="434.0" promptText="Enter Client Here" />
+      <Button fx:id="btnStartClient" layoutX="254.0" layoutY="376.0" mnemonicParsing="false" onAction="#btnStartClient" prefHeight="46.0" prefWidth="111.0" style="-fx-background-color: green;" text="Start Client" textFill="WHITE">
          <font>
             <Font name="Poppins Bold" size="14.0" />
          </font>
@@ -21,12 +20,12 @@
             <Cursor fx:constant="HAND" />
          </cursor>
       </Button>
-      <Text layoutX="268.0" layoutY="22.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Server">
+      <Text layoutX="269.0" layoutY="39.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Server">
          <font>
             <Font name="Poppins Bold" size="24.0" />
          </font>
       </Text>
       <ImageView fx:id="imageView" fitHeight="204.0" fitWidth="159.0" layoutX="443.0" layoutY="82.0" pickOnBounds="true" preserveRatio="true" />
-      <Button layoutX="487.0" layoutY="292.0" mnemonicParsing="false" onAction="#downloadBtn" text="Download" />
+      <TextArea fx:id="txtStatus" layoutX="46.0" layoutY="71.0" prefHeight="233.0" prefWidth="534.0" />
    </children>
 </AnchorPane>
