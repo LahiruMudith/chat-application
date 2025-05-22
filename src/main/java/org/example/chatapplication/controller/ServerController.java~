@@ -11,10 +11,12 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.image.ImageView;
 import javafx.stage.Stage;
+import org.example.chatapplication.HelloApplication;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
@@ -97,11 +99,7 @@ public class ServerController implements Initializable {
             try {
                 serverSocket = new ServerSocket(PORTNUMBER);
                 while (isRunning){
-                    Socket socket = serverSocket.accept();
-                    appendStatus("New client connected");
-
-                    Thread clientThread = new Thread(new ClientHandler(socket));
-                    clientThread.start();
+                    Socket accept = serverSocket.accept();
                 }
 
             } catch (Exception e) {

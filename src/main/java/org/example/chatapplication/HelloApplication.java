@@ -11,7 +11,7 @@ public class HelloApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
         startServer();
-        startClient();
+//        startClient();
     }
     void startServer() throws IOException {
         FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("view/server.fxml"));
@@ -22,7 +22,7 @@ public class HelloApplication extends Application {
         stage.show();
     }
     void startClient() throws IOException {
-        FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("view/client.fxml"));
+        FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("/view/client.fxml"));
         Stage stage = new Stage();
         Scene scene = new Scene(fxmlLoader.load(), 618.0, 442);
         stage.setTitle("Client 01!");

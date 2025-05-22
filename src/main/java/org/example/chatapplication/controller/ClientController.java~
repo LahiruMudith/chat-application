@@ -1,14 +1,13 @@
 package org.example.chatapplication.controller;
 
+import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.stage.FileChooser;
-import javafx.stage.Stage;
 
 import java.io.*;
 import java.net.Socket;
@@ -17,84 +16,149 @@ import java.nio.file.Files;
 import java.util.ResourceBundle;
 
 public class ClientController implements Initializable {
-    Socket socket = new Socket("localhost", 5000);
-    DataInputStream dataInputStream;
-    DataOutputStream dataOutputStream;
-    FileInputStream fileInputStream;
 
-    File file;
-
-    Boolean isImage = false;
     @FXML
     private Button btnSend;
 
     @FXML
-    private TextArea messageArea;
+    private ListView<Object> messageArea;
 
     @FXML
     private TextField txtText;
 
-    public ClientController() throws IOException {
-        System.out.println("Starting Client...");
-    }
+    private ObjectOutputStream outputStream;
+    private ObjectInputStream inputStream;
+    String clientName;
+    private boolean nameAccepted = false;
 
     @FXML
-    void btnSend(ActionEvent event) throws IOException {
-        if (isImage) {
-            sendImage();
-        }
-        String newMessage = txtText.getText();
-        messageArea.appendText("Client : " + newMessage + "\n");
-
-        dataOutputStream = new DataOutputStream(socket.getOutputStream());
-        dataOutputStream.writeUTF(newMessage);
-        dataOutputStream.flush();
-
-        txtText.clear();
-    }
-
-    void sendImage() throws IOException {
-        System.out.println(file.toPath());
-        if (file != null) {
-            byte[] imageByte = Files.readAllBytes(file.toPath());
-            dataOutputStream = new DataOutputStream(socket.getOutputStream());
-            dataOutputStream.writeUTF("IMAGE");
-            dataOutputStream.writeInt(imageByte.length);
-            dataOutputStream.write(imageByte);
-            dataOutputStream.flush();
-
-
-        }else {
-            new Alert(Alert.AlertType.ERROR, "No file selected").show();
-        }
-    }
-
-    @FXML
-    void btnFileUpload(ActionEvent event){
+    void btnFileUpload(ActionEvent event) {
         FileChooser fileChooser = new FileChooser();
-        file = fileChooser.showOpenDialog(new Stage());
-
-        if (file != null) {
-            String fileName = file.getName();
-            if (fileName.endsWith(".png") || fileName.endsWith(".jpg") || fileName.endsWith(".jpeg") || fileName.endsWith(".gif") || fileName.endsWith(".bmp")) {
-                isImage = true;
-            }
-        }else {
-            new Alert(Alert.AlertType.ERROR, "No file selected").show();
-        }
-    }
-    @Override
-    public void initialize(URL url, ResourceBundle resourceBundle) {
-        new Thread(() -> {
+        fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Image Files", "*.png", "*.jpg", "*.jpeg"));
+        File file = fileChooser.showOpenDialog(null);
+        if (file != null){
             try {
-                dataInputStream = new DataInputStream(socket.getInputStream());
-                while (true){
-                    String message = dataInputStream.readUTF();
-                    messageArea.appendText("Server : " + message +  "\n");
-                }
+                byte[] imageData = Files.readAllBytes(file.toPath());
+                outputStream.writeObject(imageData);
+                outputStream.flush();
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-        }).start();
+        }
+    }
+
+    @FXML
+    void btnSend(ActionEvent event) {
+        String message = txtText.getText();
+        try {
+            outputStream.writeObject(message);
+            outputStream.flush();
+            txtText.clear();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void initialize(URL url, ResourceBundle resourceBundle) {
+        messageArea.setCellFactory(objectListView -> new ListCell<Object>(){
+            @Override
+            protected void updateItem(Object item, boolean empty) {
+                super.updateItem(item, empty);
+
+                if (empty || item == null){
+                    setText(null);
+                }else if (item instanceof String){
+                    setText((String) item);
+                    setGraphic(null);
+                } else if (item instanceof Image) {
+                    Image image = (Image) item;
+                    ImageView imageView = new ImageView(image);
+                    imageView.setFitHeight(100);
+                    imageView.setFitWidth(100);
+                    imageView.setPreserveRatio(true);
+                    imageView.setSmooth(true);
+                    imageView.setCache(true);
+
+                    setGraphic(imageView);
+                    setText(null);
+                }
+            }
+        });
+
+        try {
+//            Socket socket = new Socket("localhost", 7000);
+//            outputStream = new ObjectOutputStream(socket.getOutputStream());
+//            inputStream = new ObjectInputStream(socket.getInputStream());
+//
+//            Thread thread = new Thread(this::listenForMessages);
+//            thread.start();
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+    void listenForMessages(){
+        try {
+            while (true){
+                Object message = inputStream.readObject();
+                if (message == null) break;
+                if (message instanceof String){
+                    String text = (String) message;
+                    if (text.startsWith("SUBMITNAME")){
+//                        if (!nameAccepted){
+//                            promtForName();
+//                        }
+                    } else if (text.startsWith("NAMEACCEPTED")) {
+                        nameAccepted = true;
+                        Platform.runLater(() -> {
+                            messageArea.getItems().add("Connect As " + clientName);
+                        });
+                    } else if (text.startsWith("TEXT")) {
+                        Platform.runLater(() -> {
+                            if (text.startsWith("TEXT " + clientName + ": ")){
+                                messageArea.getItems().add("You: " + text.substring(clientName.length()+2+5));
+                            }else {
+                                messageArea.getItems().add(text.substring(5));
+                            }
+                        });
+                    } else if (text.startsWith("IMAGE")) {
+                        byte[] imageData = (byte[]) inputStream.readObject();
+                        Image image = new Image(new ByteArrayInputStream(imageData));
+                        Platform.runLater(() -> {
+                            messageArea.getItems().add(text.substring(6) + "Send an image");
+                            messageArea.getItems().add(image);
+                        });
+                    }
+                }
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            Platform.runLater(() -> messageArea.getItems().add("Disconnected" + e.getMessage()));
+        }finally {
+            closeConnection();
+        }
+    }
+
+    void closeConnection() {
+        try {
+            if (outputStream != null) {
+                outputStream.close();
+            }
+
+            if (inputStream != null) {
+                inputStream.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    void setClientName(String clientName) {
+        this.clientName = clientName;
+        if (clientName != null) {
+            Platform.runLater(() -> messageArea.getItems().add("Connected as " + clientName));
+        } else {
+            Platform.runLater(() -> messageArea.getItems().add("Disconnected"));
+        }
     }
 }
